@@ -366,11 +366,15 @@ This assignment uses **GitHub Classroom**. Your work is submitted by pushing to 
    ```
 6. Verify your submission on GitHub — go to your repository page and confirm all files are present
 
+### How Grading Works
+
+- When you push to `main`, the autograder automatically creates a **Pull Request** with your grading results
+- Check the **Pull Requests** tab on your GitHub repository to see your score and feedback
+- You can push multiple times before the deadline; each push triggers a new grading run
+
 ### Important
 
 - **Do NOT commit sensitive files** — `.env`, `database/support.db`, and `__pycache__/` are already in `.gitignore`
-- The autograder runs automatically when you push to `main` — check the **Actions** tab on your GitHub repository for results
-- You can push multiple times before the deadline; each push triggers a new grading run
 - Make sure your code passes the local tests before pushing
 
 ---
