@@ -345,11 +345,33 @@ adk web host_agent
 
 ## Submission
 
+This assignment uses **GitHub Classroom**. Your work is submitted by pushing to your repository's `main` branch.
+
+### Steps
+
 1. Verify all three agents work with `adk web`
 2. Run test scenarios: `python test_scenarios.py`
-3. Record a 2-3 minute demo
-4. Complete `docs/reflection.md`
-5. ZIP your project (exclude `database/support.db`, `__pycache__/`)
+3. Run the verification tests:
+   ```bash
+   python -m tests.test_mcp_toolset
+   python -m tests.test_agents
+   python -m tests.test_a2a
+   ```
+4. Complete `docs/reflection_template.md`
+5. Commit and push your changes:
+   ```bash
+   git add -A
+   git commit -m "Submit assignment 4"
+   git push origin main
+   ```
+6. Verify your submission on GitHub — go to your repository page and confirm all files are present
+
+### Important
+
+- **Do NOT commit sensitive files** — `.env`, `database/support.db`, and `__pycache__/` are already in `.gitignore`
+- The autograder runs automatically when you push to `main` — check the **Actions** tab on your GitHub repository for results
+- You can push multiple times before the deadline; each push triggers a new grading run
+- Make sure your code passes the local tests before pushing
 
 ---
 
