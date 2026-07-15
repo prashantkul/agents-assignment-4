@@ -35,6 +35,7 @@ from shared import a2a_compat  # noqa: F401
 from google.adk.agents import Agent, SequentialAgent, ParallelAgent
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.agents.callback_context import CallbackContext
 from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
 from shared.agents_config import (
     CUSTOMER_DATA_AGENT_URL,
@@ -43,6 +44,36 @@ from shared.agents_config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _capture_output_to_state(output_key: str):
+    """Build an after_agent_callback that saves a RemoteA2aAgent's final text
+    output into session state under `output_key`.
+
+    RemoteA2aAgent (unlike LlmAgent) has no built-in `output_key` field to
+    auto-save its response to state — that mechanism only exists on LlmAgent
+    (see llm_agent.py's __maybe_save_output_to_state, which hooks into the
+    per-event streaming loop LlmAgent runs internally). RemoteA2aAgent has no
+    equivalent internal hook, so this callback replicates the same effect
+    generically: after the remote agent's turn finishes, find its most recent
+    event in the session and copy its text into state.
+    """
+
+    def _callback(callback_context: CallbackContext):
+        for event in reversed(callback_context.session.events):
+            if event.author != callback_context.agent_name:
+                continue
+            if not event.content or not event.content.parts:
+                continue
+            text = ''.join(
+                part.text for part in event.content.parts if part.text
+            )
+            if text:
+                callback_context.state[output_key] = text
+            break
+        return None
+
+    return _callback
 
 
 # =============================================================================
@@ -63,7 +94,25 @@ def create_summary_instruction(readonly_context: ReadonlyContext) -> str:
       - support_output = readonly_context.state.get("support_specialist_output", "")
       - Instruction should tell the LLM to combine outputs naturally
     """
-    raise NotImplementedError("BONUS TODO: Implement create_summary_instruction")
+    data_output = readonly_context.state.get("customer_data_output", "")
+    support_output = readonly_context.state.get("support_specialist_output", "")
+
+    return f"""
+    You are a synthesis agent. Two specialists ran in parallel on the same
+    user query and produced the outputs below.
+
+    --- Customer Data Agent output ---
+    {data_output or "(no output — this agent was not relevant or produced nothing)"}
+
+    --- Support Agent output ---
+    {support_output or "(no output — this agent was not relevant or produced nothing)"}
+
+    Combine these into a single, cohesive response for the user. Do not
+    mention that two separate agents were involved — present it as one
+    unified answer. Preserve concrete facts (IDs, statuses, ticket numbers)
+    exactly as given; do not alter or invent any of them. If one output is
+    empty or irrelevant, just use the other.
+    """
 
 
 # =============================================================================
@@ -95,7 +144,33 @@ def create_agent():
     Returns:
         Configured SequentialAgent with parallel execution and synthesis
     """
-    raise NotImplementedError(
-        "BONUS TODO: Create the parallel router agent. "
-        "See the docstring above for the architecture."
+    remote_customer_data = RemoteA2aAgent(
+        name='customer_data',
+        description='Access customer and ticket data from MCP server',
+        agent_card=f'{CUSTOMER_DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}',
+        after_agent_callback=_capture_output_to_state('customer_data_output'),
+    )
+
+    remote_support = RemoteA2aAgent(
+        name='support_specialist',
+        description='Provide customer support and troubleshooting solutions',
+        agent_card=f'{SUPPORT_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}',
+        after_agent_callback=_capture_output_to_state('support_specialist_output'),
+    )
+
+    parallel_worker_agent = ParallelAgent(
+        name='parallel_worker',
+        sub_agents=[remote_customer_data, remote_support],
+    )
+
+    summary_agent = Agent(
+        model=GEMINI_MODEL,
+        name='summary_agent',
+        instruction=create_summary_instruction,
+        include_contents='none',
+    )
+
+    return SequentialAgent(
+        name='parallel_router_host',
+        sub_agents=[parallel_worker_agent, summary_agent],
     )
