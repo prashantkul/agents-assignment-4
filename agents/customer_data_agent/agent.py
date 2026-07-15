@@ -1,80 +1,58 @@
-"""
-Part 2a: Customer Data Agent (15 points)
+"""Customer Data Agent for Assignment 4."""
 
-Create an ADK Agent that manages customer and ticket data via McpToolset.
-
-This agent should:
-  - Use the Gemini model from agents_config
-  - Have a descriptive instruction telling the LLM its role and capabilities
-  - Include the customer data McpToolset so it can access customer/ticket data
-
-The McpToolset auto-discovers tools from the MCP server — no manual wrappers needed.
-You configure which tools the agent can access via the tool_filter in the toolset.
-
-Requirements:
-  - create_agent() returns a configured google.adk.agents.Agent (5 pts)
-  - Agent has a detailed instruction string (5 pts)
-  - Agent uses create_customer_data_toolset() (5 pts)
-
-Example instruction topics to cover:
-  - The agent's role (Customer Data specialist)
-  - What tools are available (customer lookup, ticket management, statistics)
-  - How to handle requests (parse, use tools, format response)
-  - Response style (precise, data-driven)
-"""
-
-import sys
-import os
 import logging
+import os
+import sys
 
-# Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.adk.agents import Agent
+
 from shared.agents_config import GEMINI_MODEL
 from shared.mcp_toolset import create_customer_data_toolset
 
-# Configure logging for this agent
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(asctime)s] [CUSTOMER_DATA_AGENT] %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
+    format="[%(asctime)s] [CUSTOMER_DATA_AGENT] %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
+CUSTOMER_DATA_INSTRUCTION = """
+You are the Customer Data Agent for a multi-agent customer support system.
+
+Your role is to retrieve, inspect, and manage customer and ticket data using the
+auto-discovered MCP database tools. You are the authoritative source for facts
+about customers, accounts, tickets, ticket priority, ticket status, and aggregate
+support statistics.
+
+Available capabilities include:
+- Retrieve a customer by ID and list customers.
+- Add, update, disable, or activate customer records when the request is clearly
+  administrative and appropriate.
+- Retrieve tickets, list tickets, create new tickets, update ticket status, and
+  update ticket priority.
+- Search tickets and retrieve customer or ticket statistics.
+
+Operating rules:
+1. Parse the user request and identify the required customer ID, ticket ID,
+   filters, or search terms before calling tools.
+2. Use MCP tools for factual information instead of guessing.
+3. If required identifiers are missing, ask a concise clarifying question.
+4. If a tool fails or returns no results, explain the issue clearly and suggest a
+   safe next step.
+5. Return structured, data-driven responses with relevant IDs, status, priority,
+   and concise summaries.
+6. Do not invent customer records or ticket history.
+"""
+
 
 def create_agent() -> Agent:
-    """
-    Create the Customer Data Agent.
-
-    TODO: Create and return an Agent instance with:
-      1. model=GEMINI_MODEL
-      2. name='customer_data_agent'
-      3. instruction=<your detailed instruction string>
-      4. tools=[create_customer_data_toolset()]
-
-    The McpToolset automatically discovers all filtered tools from the MCP
-    server. You pass the toolset instance in the tools list — ADK handles
-    the rest.
-
-    Example:
-        return Agent(
-            model=GEMINI_MODEL,
-            name='customer_data_agent',
-            instruction=\"\"\"
-            You are the Customer Data Agent...
-            Your capabilities:
-            - Retrieve customer information by ID
-            - List customers with filters
-            ...
-            \"\"\",
-            tools=[create_customer_data_toolset()],
-        )
-
-    Returns:
-        Configured Agent instance
-    """
-    raise NotImplementedError(
-        "TODO: Create the Customer Data Agent with model, name, instruction, and tools. "
-        "Use tools=[create_customer_data_toolset()] to attach the MCP toolset."
+    """Create and return the ADK Customer Data Agent."""
+    logger.info("Creating Customer Data Agent")
+    return Agent(
+        model=GEMINI_MODEL,
+        name="customer_data_agent",
+        instruction=CUSTOMER_DATA_INSTRUCTION,
+        tools=[create_customer_data_toolset()],
     )

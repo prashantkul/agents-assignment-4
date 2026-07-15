@@ -1,93 +1,67 @@
-"""
-Part 2b: Support Agent (15 points)
+"""Support Agent for Assignment 4."""
 
-Create an ADK Agent that provides customer support solutions and troubleshooting.
-
-This agent should:
-  - Use the Gemini model from agents_config
-  - Have a detailed instruction covering support scenarios
-  - Include the support McpToolset so it can look up customer data and manage tickets
-
-The McpToolset auto-discovers tools from the MCP server. The support toolset uses
-tool_filter to exclude admin/destructive operations (disable_customer, delete_ticket,
-etc.) so the support agent can only perform safe operations.
-
-Requirements:
-  - create_agent() returns a configured google.adk.agents.Agent (5 pts)
-  - Agent has a comprehensive instruction with support knowledge base (5 pts)
-  - Agent uses create_support_toolset() for data-driven support (5 pts)
-
-The support agent's instruction should include a "knowledge base" covering:
-  - Login issues (password resets, account lockouts)
-  - Payment issues (failed transactions, billing errors)
-  - Performance problems (slow loading, timeouts)
-  - Feature requests and suggestions
-  - Data export issues
-
-The instruction should also describe:
-  - How to handle support queries (analyze, categorize, solve)
-  - Response structure (customer context, issue category, solutions, ticket actions)
-  - When to create/update tickets
-  - Professional and empathetic tone
-"""
-
-import sys
-import os
 import logging
+import os
+import sys
 
-# Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.adk.agents import Agent
+
 from shared.agents_config import GEMINI_MODEL
 from shared.mcp_toolset import create_support_toolset
 
-# Configure logging for this agent
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(asctime)s] [SUPPORT_AGENT] %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
+    format="[%(asctime)s] [SUPPORT_AGENT] %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
+SUPPORT_INSTRUCTION = """
+You are the Support Agent for a customer support system. Your job is to help
+customers resolve issues in a professional, empathetic, and solution-oriented
+way while using the support-safe MCP tools when data lookup or ticket actions
+are needed.
+
+You can safely retrieve customer and ticket information, search tickets, create
+support tickets, and update ticket status or priority. You cannot perform
+administrative or destructive operations such as disabling customers, activating
+customers, deleting tickets, adding customer master records, or directly updating
+customer master records.
+
+Knowledge base:
+- Login issues: confirm account context, check for existing tickets, suggest
+  password reset, verify email spelling, clear browser cache, retry in a private
+  window, and escalate if the account appears locked.
+- Password resets: explain the reset flow, check whether there is already an
+  open ticket, and create a ticket if the customer cannot receive reset email.
+- Billing/payment issues: verify customer context, ask for non-sensitive billing
+  details, never request full card numbers, check related tickets, and create or
+  update a billing ticket as needed.
+- Performance issues: ask for browser/device/network details, suggest refresh,
+  cache clear, retry later, and create a ticket for repeated timeouts.
+- Feature requests: acknowledge the request, capture the business need, and
+  create a ticket with appropriate priority.
+- Data export issues: check customer context, explain export expectations, and
+  create a ticket if export fails or data appears missing.
+
+Response structure:
+1. Acknowledge the customer's issue.
+2. Summarize any customer or ticket context retrieved from tools.
+3. Categorize the issue.
+4. Provide concrete troubleshooting steps.
+5. State any ticket action taken or recommended.
+6. Explain graceful next steps if a tool is unavailable or data is missing.
+"""
+
 
 def create_agent() -> Agent:
-    """
-    Create the Support Agent.
-
-    TODO: Create and return an Agent instance with:
-      1. model=GEMINI_MODEL
-      2. name='support_agent'
-      3. instruction=<your detailed support instruction>
-      4. tools=[create_support_toolset()]
-
-    The McpToolset automatically discovers support-safe tools from the MCP
-    server. Admin/destructive tools are excluded by the tool_filter.
-
-    Example:
-        return Agent(
-            model=GEMINI_MODEL,
-            name='support_agent',
-            instruction=\"\"\"
-            You are the Support Agent, a specialist in customer service...
-
-            Your knowledge base includes solutions for:
-            - Login issues (password resets, account lockouts)
-            - Payment issues (failed transactions, billing errors)
-            ...
-
-            When handling support queries:
-            1. Use MCP tools to retrieve customer information
-            2. Analyze the customer's issue
-            ...
-            \"\"\",
-            tools=[create_support_toolset()],
-        )
-
-    Returns:
-        Configured Agent instance
-    """
-    raise NotImplementedError(
-        "TODO: Create the Support Agent with model, name, instruction (including knowledge base), and tools. "
-        "Use tools=[create_support_toolset()] to attach the MCP toolset."
+    """Create and return the ADK Support Agent."""
+    logger.info("Creating Support Agent")
+    return Agent(
+        model=GEMINI_MODEL,
+        name="support_agent",
+        instruction=SUPPORT_INSTRUCTION,
+        tools=[create_support_toolset()],
     )
