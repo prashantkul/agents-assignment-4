@@ -65,7 +65,7 @@ def check_customer_data_agent():
     # Check 4: Agent has McpToolset in tools
     tools = getattr(agent, 'tools', []) or []
     try:
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
         has_toolset = any(isinstance(t, McpToolset) for t in tools)
     except ImportError:
         has_toolset = len(tools) > 0
@@ -137,7 +137,7 @@ def check_support_agent():
     # Check 4: Agent has McpToolset in tools
     tools = getattr(agent, 'tools', []) or []
     try:
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
         has_toolset = any(isinstance(t, McpToolset) for t in tools)
     except ImportError:
         has_toolset = len(tools) > 0

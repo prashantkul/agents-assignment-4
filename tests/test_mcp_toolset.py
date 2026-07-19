@@ -56,7 +56,7 @@ def check_customer_data_toolset():
     """Check Customer Data Toolset structure."""
     try:
         from shared.mcp_toolset import create_customer_data_toolset
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
     except ImportError as e:
         print(f"  [FAIL] Import error: {e}")
         return False
@@ -107,7 +107,7 @@ def check_support_toolset():
     """Check Support Toolset structure."""
     try:
         from shared.mcp_toolset import create_support_toolset
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
     except ImportError as e:
         print(f"  [FAIL] Import error: {e}")
         return False
@@ -220,21 +220,21 @@ class TestMcpToolset:
     def test_customer_data_toolset_type(self):
         """Customer data toolset should return McpToolset."""
         from shared.mcp_toolset import create_customer_data_toolset
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
         toolset = create_customer_data_toolset()
         assert isinstance(toolset, McpToolset)
 
     def test_support_toolset_type(self):
         """Support toolset should return McpToolset."""
         from shared.mcp_toolset import create_support_toolset
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
         toolset = create_support_toolset()
         assert isinstance(toolset, McpToolset)
 
     def test_full_toolset_reference(self):
         """Full toolset (reference) should return McpToolset."""
         from shared.mcp_toolset import create_full_toolset
-        from google.adk.tools.mcp_tool import McpToolset
+        from google.adk.tools.mcp_tool import MCPToolset as McpToolset
         toolset = create_full_toolset()
         assert isinstance(toolset, McpToolset)
 
