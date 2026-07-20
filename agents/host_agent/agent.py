@@ -57,7 +57,7 @@ def create_agent() -> SequentialAgent:
     """
     Create the Host Agent (Orchestrator).
 
-    TODO: Implement this function to:
+    This function:
 
     1. Create a RemoteA2aAgent for the Customer Data Agent:
        - name='customer_data'
@@ -94,8 +94,31 @@ def create_agent() -> SequentialAgent:
     Returns:
         Configured SequentialAgent instance
     """
-    raise NotImplementedError(
-        "TODO: Create the Host Agent with two RemoteA2aAgent sub-agents "
-        "(customer_data and support_specialist) wrapped in a SequentialAgent. "
-        "See the docstring above for the exact structure."
+    # Wrap each remote agent as a local sub-agent. RemoteA2aAgent fetches the
+    # target's Agent Card from its well-known URL, then delegates by speaking
+    # A2A (JSON-RPC) to that agent's server - the host never imports or calls
+    # the sub-agents' code directly, which is the whole point of A2A.
+    remote_customer_data = RemoteA2aAgent(
+        name='customer_data',
+        description='Access customer and ticket data from MCP server',
+        agent_card=f'{CUSTOMER_DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}',
+    )
+
+    remote_support = RemoteA2aAgent(
+        name='support_specialist',
+        description='Provide customer support and troubleshooting solutions',
+        agent_card=f'{SUPPORT_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}',
+    )
+
+    # SequentialAgent runs sub-agents in order and threads the conversation
+    # context through: the Customer Data Agent looks up the account first, then
+    # the Support Agent resolves the issue with that context already in hand.
+    logger.info("Creating Host Agent (SequentialAgent: data -> support)")
+    return SequentialAgent(
+        name='customer_support_host',
+        description=(
+            'Orchestrates customer support by delegating to the Customer Data '
+            'Agent and then the Support Agent over A2A.'
+        ),
+        sub_agents=[remote_customer_data, remote_support],
     )

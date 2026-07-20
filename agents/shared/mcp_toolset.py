@@ -80,18 +80,40 @@ def create_full_toolset() -> McpToolset:
 #       tool_filter=[...list of tool name strings...],
 #   )
 
+# Full data-plane access: every tool the MCP server exposes, including the
+# admin/destructive ones (disable/activate customer, delete ticket, add/update
+# customer). The Customer Data Agent is the trusted back-office role, so it gets
+# the complete surface. We list all 15 explicitly rather than passing no filter:
+# an explicit allow-list is self-documenting and fails closed if the server ever
+# grows a tool this role should not automatically inherit.
+CUSTOMER_DATA_TOOLS = [
+    # Customer records
+    "get_customer", "list_customers", "add_customer", "update_customer",
+    "disable_customer", "activate_customer",
+    # Ticket lifecycle
+    "get_ticket", "list_tickets", "create_ticket",
+    "update_ticket_status", "update_ticket_priority", "delete_ticket",
+    # Analytics / search
+    "get_ticket_stats", "get_customer_stats", "search_tickets",
+]
+
+
 def create_customer_data_toolset() -> McpToolset:
     """Create an McpToolset for the Customer Data Agent.
 
     Includes tools for customer lookup, ticket management, statistics,
-    and admin operations. This agent has broad data access.
+    and admin operations. This agent has broad data access (all 15 tools).
 
     Returns:
-        McpToolset: Toolset with customer data tools
+        McpToolset: Toolset with the full set of customer data tools.
     """
-    raise NotImplementedError(
-        "TODO: Return McpToolset with tool_filter selecting customer data tools. "
-        "Use SseConnectionParams(url=MCP_SSE_URL) and a tool_filter list."
+    logger.info(
+        "[MCP_TOOLSET] Creating customer data toolset (%d tools)",
+        len(CUSTOMER_DATA_TOOLS),
+    )
+    return McpToolset(
+        connection_params=SseConnectionParams(url=MCP_SSE_URL),
+        tool_filter=CUSTOMER_DATA_TOOLS,
     )
 
 
@@ -122,18 +144,43 @@ def create_customer_data_toolset() -> McpToolset:
 #       tool_filter=[...list of support-safe tool names...],
 #   )
 
+# Support-safe subset: the same MCP server, a narrower capability boundary.
+# The Support Agent talks directly to customers, so it can read anything and
+# manage tickets, but it MUST NOT be able to mutate the customer roster or
+# destroy data. These five are withheld:
+#   add_customer, update_customer  -> account admin, not a support action
+#   disable_customer, activate_customer -> account state changes, admin only
+#   delete_ticket                  -> destructive, irreversible
+# This is the tool_filter enforcing least privilege at the protocol layer:
+# the excluded tools are never even discovered by this agent, so no amount of
+# clever prompting can make it call them.
+SUPPORT_SAFE_TOOLS = [
+    # Read-only lookups
+    "get_customer", "list_customers",
+    # Ticket handling (create + progress, but never delete)
+    "get_ticket", "list_tickets", "create_ticket",
+    "update_ticket_status", "update_ticket_priority",
+    # Analytics / search
+    "get_ticket_stats", "get_customer_stats", "search_tickets",
+]
+
+
 def create_support_toolset() -> McpToolset:
     """Create an McpToolset for the Support Agent.
 
     Includes only support-safe tools: lookups, ticket management, and stats.
     Excludes admin operations (disable/activate customer, delete ticket,
-    add/update customer).
+    add/update customer) so a customer-facing agent cannot mutate accounts
+    or destroy records.
 
     Returns:
-        McpToolset: Toolset with support-safe tools only
+        McpToolset: Toolset with support-safe tools only (10 tools).
     """
-    raise NotImplementedError(
-        "TODO: Return McpToolset with tool_filter selecting support-safe tools. "
-        "Exclude admin tools: disable_customer, activate_customer, delete_ticket, "
-        "add_customer, update_customer."
+    logger.info(
+        "[MCP_TOOLSET] Creating support toolset (%d tools, admin ops excluded)",
+        len(SUPPORT_SAFE_TOOLS),
+    )
+    return McpToolset(
+        connection_params=SseConnectionParams(url=MCP_SSE_URL),
+        tool_filter=SUPPORT_SAFE_TOOLS,
     )
