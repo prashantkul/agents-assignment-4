@@ -31,9 +31,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # IMPORTANT: Apply A2A compatibility patch BEFORE importing RemoteA2aAgent
 from shared import a2a_compat  # noqa: F401
 
-from google.adk.agents import Agent, SequentialAgent, ParallelAgent
-from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+from google.adk.agents import Agent, SequentialAgent
 from google.adk.agents.callback_context import CallbackContext
+from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 from google.genai import types
 from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
 from shared.agents_config import (
@@ -52,100 +53,217 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# TODO BONUS: Routing Logic Functions
+# Routing Logic
 # =============================================================================
 
 def analyze_query_intent(query: str) -> dict:
-    """
-    Analyze query to determine routing strategy.
+    """Classify a query's worker requirements, urgency, and execution mode."""
+    normalized_query = query.casefold()
 
-    TODO: Implement query analysis that returns:
-      - needs_data: bool (does the query need customer/ticket data?)
-      - needs_support: bool (does the query need support/help?)
-      - urgency: str ('low', 'medium', 'high')
-      - execution_mode: str ('sequential', 'data_only', 'support_only')
+    data_keywords = {
+        "account",
+        "customer",
+        "customer id",
+        "history",
+        "id ",
+        "list",
+        "record",
+        "search",
+        "statistic",
+        "status",
+        "ticket",
+    }
+    support_keywords = {
+        "billing",
+        "can't",
+        "cannot",
+        "charged",
+        "error",
+        "failed",
+        "fix",
+        "help",
+        "issue",
+        "login",
+        "password",
+        "payment",
+        "problem",
+        "refund",
+        "reset",
+        "slow",
+        "support",
+        "timeout",
+        "unable",
+    }
+    high_urgency_keywords = {
+        "asap",
+        "critical",
+        "emergency",
+        "immediately",
+        "security breach",
+        "urgent",
+    }
+    medium_urgency_keywords = {
+        "charged",
+        "duplicate",
+        "failed",
+        "locked",
+        "outage",
+        "refund",
+        "unable",
+    }
 
-    Hints:
-      - Check for data keywords: 'customer', 'ticket', 'id', 'list', 'search'
-      - Check for support keywords: 'help', 'issue', 'problem', 'reset', 'fix'
-      - Check for urgency keywords: 'urgent', 'immediately', 'asap', 'critical'
+    needs_data = any(
+        keyword in normalized_query for keyword in data_keywords
+    )
+    needs_support = any(
+        keyword in normalized_query for keyword in support_keywords
+    )
 
-    Example return:
-        {
-            'needs_data': True,
-            'needs_support': True,
-            'urgency': 'medium',
-            'execution_mode': 'sequential'
-        }
-    """
-    raise NotImplementedError("BONUS TODO: Implement analyze_query_intent")
+    # A query with no recognizable data vocabulary is safest to treat as a
+    # general support request instead of skipping both worker agents.
+    if not needs_data and not needs_support:
+        needs_support = True
+
+    if any(
+        keyword in normalized_query for keyword in high_urgency_keywords
+    ):
+        urgency = "high"
+    elif any(
+        keyword in normalized_query for keyword in medium_urgency_keywords
+    ):
+        urgency = "medium"
+    else:
+        urgency = "low"
+
+    if needs_data and needs_support:
+        execution_mode = "sequential"
+    elif needs_data:
+        execution_mode = "data_only"
+    else:
+        execution_mode = "support_only"
+
+    return {
+        "needs_data": needs_data,
+        "needs_support": needs_support,
+        "urgency": urgency,
+        "execution_mode": execution_mode,
+    }
 
 
 # =============================================================================
-# TODO BONUS: Callback Functions for Dynamic Routing
+# Conditional Worker Callbacks
 # =============================================================================
 
-def should_run_customer_data_agent(callback_context: CallbackContext) -> Optional[types.Content]:
-    """
-    Callback to determine if Customer Data Agent should run.
+def should_run_customer_data_agent(
+    callback_context: CallbackContext,
+) -> Optional[types.Content]:
+    """Run the Customer Data Agent unless routing explicitly excludes it."""
+    routing_decision = callback_context.state.get("routing_decision", {})
+    if routing_decision.get("needs_data", True):
+        return None
 
-    TODO: Check callback_context.state for routing_decision.
-      - If needs_data is False, return Content to skip the agent
-      - If needs_data is True (or missing), return None to run it
+    logger.info("Skipping Customer Data Agent based on routing decision")
+    return types.Content(
+        parts=[
+            types.Part(
+                text=(
+                    "Customer data lookup was skipped because this request "
+                    "does not require customer or ticket data."
+                )
+            )
+        ]
+    )
 
-    Hints:
-      - routing_decision = callback_context.state.get('routing_decision', {})
-      - Return None to run the agent
-      - Return types.Content(parts=[types.Part(text="...")]) to skip
-    """
-    raise NotImplementedError("BONUS TODO: Implement should_run_customer_data_agent callback")
 
+def should_run_support_agent(
+    callback_context: CallbackContext,
+) -> Optional[types.Content]:
+    """Run the Support Agent unless routing explicitly excludes it."""
+    routing_decision = callback_context.state.get("routing_decision", {})
+    if routing_decision.get("needs_support", True):
+        return None
 
-def should_run_support_agent(callback_context: CallbackContext) -> Optional[types.Content]:
-    """
-    Callback to determine if Support Agent should run.
-
-    TODO: Similar to should_run_customer_data_agent but checks needs_support.
-    """
-    raise NotImplementedError("BONUS TODO: Implement should_run_support_agent callback")
+    logger.info("Skipping Support Agent based on routing decision")
+    return types.Content(
+        parts=[
+            types.Part(
+                text=(
+                    "Support troubleshooting was skipped because this "
+                    "request only requires a data operation."
+                )
+            )
+        ]
+    )
 
 
 # =============================================================================
-# TODO BONUS: Router Agent with Dynamic Instruction
+# Dynamic Router Instruction
 # =============================================================================
 
-def create_router_instruction(readonly_context) -> str:
-    """
-    Dynamic instruction for router agent based on query analysis.
+def create_router_instruction(readonly_context: ReadonlyContext) -> str:
+    """Analyze the latest query, persist its route, and instruct the router."""
+    latest_message = getattr(readonly_context, "latest_user_message", None)
+    message_parts = getattr(latest_message, "parts", []) or []
+    query = " ".join(
+        part.text
+        for part in message_parts
+        if isinstance(getattr(part, "text", None), str)
+    ).strip()
 
-    TODO: Implement this function to:
-      1. Get the user's query from readonly_context.latest_user_message
-      2. Call analyze_query_intent(query)
-      3. Store routing_decision in readonly_context.state
-      4. Return a dynamic instruction string based on the analysis
+    routing_decision = analyze_query_intent(query)
+    readonly_context.state["routing_decision"] = routing_decision
+
+    return f"""
+    You are the routing stage for a customer-support workflow. The current
+    request has already been analyzed as follows:
+    - needs customer or ticket data: {routing_decision["needs_data"]}
+    - needs troubleshooting support: {routing_decision["needs_support"]}
+    - urgency: {routing_decision["urgency"]}
+    - execution mode: {routing_decision["execution_mode"]}
+
+    Briefly state the routing plan for the worker agents. Do not answer the
+    customer request, invent data, or attempt tool calls yourself. Preserve
+    the original request in conversation context for the selected workers.
     """
-    raise NotImplementedError("BONUS TODO: Implement create_router_instruction")
 
 
 # =============================================================================
-# TODO BONUS: Create Advanced Agent
+# Advanced Agent Factory
 # =============================================================================
 
-def create_agent():
-    """
-    Create the advanced router agent with dynamic routing capabilities.
+def create_agent() -> SequentialAgent:
+    """Create a routed orchestrator with conditionally executed workers."""
+    router_agent = Agent(
+        model=GEMINI_MODEL,
+        name="query_router",
+        description="Analyzes each request and selects the required workers",
+        instruction=create_router_instruction,
+    )
 
-    TODO: Assemble the full orchestrator:
-      1. Create router_agent (Agent with dynamic instruction)
-      2. Create remote_customer_data (RemoteA2aAgent with before_agent_callback)
-      3. Create remote_support (RemoteA2aAgent with before_agent_callback)
-      4. Create sequential_execution_agent (SequentialAgent with both remotes)
-      5. Create orchestrator (SequentialAgent with router + executor)
+    remote_customer_data = RemoteA2aAgent(
+        name="customer_data",
+        description="Access customer and ticket data from MCP server",
+        agent_card=(
+            f"{CUSTOMER_DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}"
+        ),
+        before_agent_callback=should_run_customer_data_agent,
+    )
 
-    Returns:
-        Configured SequentialAgent with router and conditional sub-agents
-    """
-    raise NotImplementedError(
-        "BONUS TODO: Create the advanced router agent. "
-        "See the docstring above for the architecture."
+    remote_support = RemoteA2aAgent(
+        name="support_specialist",
+        description="Provide customer support and troubleshooting solutions",
+        agent_card=f"{SUPPORT_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+        before_agent_callback=should_run_support_agent,
+    )
+
+    sequential_execution_agent = SequentialAgent(
+        name="conditional_support_workers",
+        description="Runs only the workers selected by the query router",
+        sub_agents=[remote_customer_data, remote_support],
+    )
+
+    return SequentialAgent(
+        name="advanced_customer_support_host",
+        description="Routes support requests to the required remote agents",
+        sub_agents=[router_agent, sequential_execution_agent],
     )

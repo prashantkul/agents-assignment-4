@@ -12,8 +12,7 @@ To switch implementations, set HOST_AGENT_MODE environment variable:
 - advanced
 - parallel
 
-NOTE: root_agent is created at import time for ADK Web.
-You must implement create_agent() before running `adk web`.
+The root agent is created at import time for ADK Web.
 """
 
 import os
@@ -31,11 +30,5 @@ else:
     from .agent import create_agent
     print("[HOST_AGENT] Using BASIC sequential router")
 
-# Root agent - required for ADK Web
-# This will raise NotImplementedError until you implement create_agent()
-try:
-    root_agent = create_agent()
-except NotImplementedError:
-    root_agent = None
-    print("[WARN] host_agent: create_agent() not implemented yet."
-          " Implement it in agents/host_agent/agent.py")
+# Root agent required for ADK Web.
+root_agent = create_agent()

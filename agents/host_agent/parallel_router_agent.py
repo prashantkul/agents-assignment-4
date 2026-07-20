@@ -46,56 +46,74 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# TODO BONUS: Summary Instruction Function
+# Summary Instruction
 # =============================================================================
 
 def create_summary_instruction(readonly_context: ReadonlyContext) -> str:
-    """
-    Create instruction for summary agent that combines parallel results.
+    """Build an instruction that synthesizes both parallel worker outputs."""
+    data_output = readonly_context.state.get("customer_data_output", "")
+    support_output = readonly_context.state.get(
+        "support_specialist_output", ""
+    )
 
-    TODO: Implement this function to:
-      1. Read customer_data_output from readonly_context.state
-      2. Read support_specialist_output from readonly_context.state
-      3. Return an instruction telling the LLM to synthesize both outputs
+    return f"""
+    You are the final response synthesizer for a customer-support workflow.
+    Combine the two worker results below into one accurate, empathetic, and
+    concise response to the user's original request.
 
-    Hints:
-      - data_output = readonly_context.state.get("customer_data_output", "")
-      - support_output = readonly_context.state.get("support_specialist_output", "")
-      - Instruction should tell the LLM to combine outputs naturally
+    Customer Data Agent result:
+    {data_output or "No customer data result was returned."}
+
+    Support Agent result:
+    {support_output or "No support result was returned."}
+
+    Reconcile duplication, preserve useful customer and ticket identifiers,
+    and organize next steps clearly. Do not invent facts or claim an action
+    succeeded unless a worker result confirms it. If a worker failed or
+    returned no result, acknowledge the limitation gracefully.
     """
-    raise NotImplementedError("BONUS TODO: Implement create_summary_instruction")
 
 
 # =============================================================================
-# TODO BONUS: Create Parallel Agent
+# Parallel Agent Factory
 # =============================================================================
 
-def create_agent():
-    """
-    Create a parallel router agent that executes agents concurrently.
+def create_agent() -> SequentialAgent:
+    """Create a parallel worker orchestrator with response synthesis."""
+    remote_customer_data = RemoteA2aAgent(
+        name="customer_data",
+        description="Access customer and ticket data from MCP server",
+        agent_card=(
+            f"{CUSTOMER_DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}"
+        ),
+        output_key="customer_data_output",
+    )
 
-    TODO: Assemble the full orchestrator:
+    remote_support = RemoteA2aAgent(
+        name="support_specialist",
+        description="Provide customer support and troubleshooting solutions",
+        agent_card=f"{SUPPORT_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+        output_key="support_specialist_output",
+    )
 
-      1. Create remote_customer_data (RemoteA2aAgent):
-         - output_key='customer_data_output'
+    parallel_worker_agent = ParallelAgent(
+        name="parallel_support_workers",
+        description="Runs customer data and support specialists concurrently",
+        sub_agents=[remote_customer_data, remote_support],
+    )
 
-      2. Create remote_support (RemoteA2aAgent):
-         - output_key='support_specialist_output'
+    summary_agent = Agent(
+        model=GEMINI_MODEL,
+        name="support_response_synthesizer",
+        description="Combines parallel worker results into a single response",
+        instruction=create_summary_instruction,
+        include_contents="none",
+    )
 
-      3. Create parallel_worker_agent (ParallelAgent):
-         - sub_agents=[remote_customer_data, remote_support]
-
-      4. Create summary_agent (Agent):
-         - instruction=create_summary_instruction
-         - include_contents='none'
-
-      5. Create orchestrator (SequentialAgent):
-         - sub_agents=[parallel_worker_agent, summary_agent]
-
-    Returns:
-        Configured SequentialAgent with parallel execution and synthesis
-    """
-    raise NotImplementedError(
-        "BONUS TODO: Create the parallel router agent. "
-        "See the docstring above for the architecture."
+    return SequentialAgent(
+        name="parallel_customer_support_host",
+        description=(
+            "Runs remote support workers concurrently and synthesizes results"
+        ),
+        sub_agents=[parallel_worker_agent, summary_agent],
     )

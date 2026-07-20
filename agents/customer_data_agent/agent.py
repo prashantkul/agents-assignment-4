@@ -44,37 +44,40 @@ logger = logging.getLogger(__name__)
 
 
 def create_agent() -> Agent:
+    """Create the Customer Data Agent with broad MCP data access."""
+    instruction = """
+    You are the Customer Data Agent, the system's specialist for customer
+    records, support tickets, searches, and aggregate statistics. Use the MCP
+    tools as the authoritative source of truth; never invent customer details,
+    ticket identifiers, statuses, priorities, or statistics.
+
+    Available capabilities include retrieving and listing customers, adding or
+    updating customer records, activating or disabling accounts, retrieving and
+    searching tickets, creating and updating tickets, deleting tickets, and
+    reporting customer or ticket statistics.
+
+    For each request:
+    1. Identify the requested entity, operation, filters, and identifiers.
+    2. Ask for a missing customer or ticket identifier when it is required.
+    3. Select the narrowest appropriate MCP tool and pass only supported
+       arguments. Use additional lookups only when they materially help.
+    4. Before a destructive or account-administration operation, make sure the
+       user's intent is explicit. Do not silently delete tickets or change an
+       account's active status.
+    5. Summarize tool results precisely in clear language. Preserve important
+       identifiers, statuses, priorities, dates, and counts.
+
+    If a record is not found, say so plainly and suggest what identifier or
+    filter to verify. If an MCP call fails or the service is unavailable, do
+    not fabricate a result; briefly explain that the data operation could not
+    be completed and offer a safe retry or next step. Keep responses concise,
+    data-driven, and respectful of customer privacy.
     """
-    Create the Customer Data Agent.
 
-    TODO: Create and return an Agent instance with:
-      1. model=GEMINI_MODEL
-      2. name='customer_data_agent'
-      3. instruction=<your detailed instruction string>
-      4. tools=[create_customer_data_toolset()]
-
-    The McpToolset automatically discovers all filtered tools from the MCP
-    server. You pass the toolset instance in the tools list — ADK handles
-    the rest.
-
-    Example:
-        return Agent(
-            model=GEMINI_MODEL,
-            name='customer_data_agent',
-            instruction=\"\"\"
-            You are the Customer Data Agent...
-            Your capabilities:
-            - Retrieve customer information by ID
-            - List customers with filters
-            ...
-            \"\"\",
-            tools=[create_customer_data_toolset()],
-        )
-
-    Returns:
-        Configured Agent instance
-    """
-    raise NotImplementedError(
-        "TODO: Create the Customer Data Agent with model, name, instruction, and tools. "
-        "Use tools=[create_customer_data_toolset()] to attach the MCP toolset."
+    logger.info("Creating Customer Data Agent with MCP tools")
+    return Agent(
+        model=GEMINI_MODEL,
+        name="customer_data_agent",
+        instruction=instruction,
+        tools=[create_customer_data_toolset()],
     )
