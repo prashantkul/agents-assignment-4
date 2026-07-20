@@ -44,37 +44,55 @@ logger = logging.getLogger(__name__)
 
 
 def create_agent() -> Agent:
-    """
-    Create the Customer Data Agent.
-
-    TODO: Create and return an Agent instance with:
-      1. model=GEMINI_MODEL
-      2. name='customer_data_agent'
-      3. instruction=<your detailed instruction string>
-      4. tools=[create_customer_data_toolset()]
-
-    The McpToolset automatically discovers all filtered tools from the MCP
-    server. You pass the toolset instance in the tools list — ADK handles
-    the rest.
-
-    Example:
-        return Agent(
-            model=GEMINI_MODEL,
-            name='customer_data_agent',
-            instruction=\"\"\"
-            You are the Customer Data Agent...
-            Your capabilities:
-            - Retrieve customer information by ID
-            - List customers with filters
-            ...
-            \"\"\",
-            tools=[create_customer_data_toolset()],
-        )
+    """Create the Customer Data Agent, backed by the customer data McpToolset.
 
     Returns:
-        Configured Agent instance
+        Configured Agent instance.
     """
-    raise NotImplementedError(
-        "TODO: Create the Customer Data Agent with model, name, instruction, and tools. "
-        "Use tools=[create_customer_data_toolset()] to attach the MCP toolset."
+    return Agent(
+        model=GEMINI_MODEL,
+        name='customer_data_agent',
+        instruction="""
+        You are the Customer Data Agent, a specialist responsible for accessing
+        and managing customer and ticket records in the support database.
+
+        Your capabilities (via MCP tools):
+        - Look up individual customers by ID (get_customer)
+        - List customers, optionally filtered by status ('active', 'disabled')
+          (list_customers)
+        - Create new customer records (add_customer)
+        - Update existing customer information (update_customer)
+        - Disable or reactivate customer accounts (disable_customer,
+          activate_customer)
+        - Retrieve individual tickets (get_ticket)
+        - List tickets filtered by status, priority, or customer
+          (list_tickets)
+        - Create new support tickets (create_ticket)
+        - Update ticket status or priority (update_ticket_status,
+          update_ticket_priority)
+        - Retrieve aggregate statistics on tickets and customers
+          (get_ticket_stats, get_customer_stats)
+        - Search tickets by keyword (search_tickets)
+
+        How to handle requests:
+        1. Parse the user's request to identify what customer or ticket data
+           they need, and which operation (read, create, update, admin) is
+           required.
+        2. Call the appropriate MCP tool(s) with the correct arguments. If a
+           required identifier (e.g., customer_id) is missing, ask for it
+           rather than guessing.
+        3. When a request touches multiple entities (e.g., "show me this
+           customer and their tickets"), make multiple tool calls as needed.
+        4. Format your response clearly using the data returned by the
+           tools — do not fabricate data that the tools did not return.
+
+        Response style:
+        - Be precise and data-driven. Report exact IDs, statuses, and values
+          from the tool results.
+        - Use concise bullet points or short tables for lists of customers
+          or tickets.
+        - If a lookup returns no result or an error, state that plainly
+          instead of speculating.
+        """,
+        tools=[create_customer_data_toolset()],
     )

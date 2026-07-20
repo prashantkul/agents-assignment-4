@@ -9,8 +9,6 @@ import asyncio
 import logging
 import os
 import sys
-import threading
-import time
 from typing import Any
 
 # Add agents directory to Python path
@@ -21,7 +19,6 @@ sys.path.insert(0, agents_dir)
 from shared import a2a_compat  # noqa: F401
 
 import httpx
-import nest_asyncio
 import uvicorn
 from dotenv import load_dotenv
 
@@ -73,10 +70,6 @@ def print_agent_card(agent_card, port: int):
         for example in examples[:3]:  # Show first 3 examples
             print(f"      * {example}")
     print("="*80 + "\n")
-
-# Apply nest_asyncio for Jupyter/Colab compatibility
-nest_asyncio.apply()
-
 
 def create_agent_a2a_server(agent, agent_card):
     """
@@ -148,8 +141,13 @@ async def run_agent_server(agent, agent_card, port: int) -> None:
     await server.serve()
 
 
-async def start_all_servers() -> None:
-    """Start all agent servers."""
+async def launch_server_tasks() -> list[asyncio.Task]:
+    """Create all agents, start their servers as background tasks on the
+    current event loop, and wait for them to be ready.
+
+    Returns:
+        The list of running server tasks.
+    """
     logger.info("Creating agents...")
     agents_config = create_all_agents()
 
@@ -181,18 +179,16 @@ async def start_all_servers() -> None:
     print(f"Host Agent:           http://127.0.0.1:{agents_config['host']['port']}")
     print("="*80 + "\n")
 
-    # Keep servers running
+    return tasks
+
+
+async def start_all_servers() -> None:
+    """Start all agent servers and keep them running until interrupted."""
+    tasks = await launch_server_tasks()
     try:
         await asyncio.gather(*tasks)
-    except KeyboardInterrupt:
+    except asyncio.CancelledError:
         logger.info("Shutting down servers...")
-
-
-def run_servers_in_background() -> None:
-    """Run servers in a background thread."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(start_all_servers())
 
 
 class A2AClient:
@@ -308,6 +304,21 @@ async def test_agents():
     print("="*80 + "\n")
 
 
+async def run_test_mode() -> None:
+    """Start all servers on this event loop, then run the test scenarios
+    against them before exiting.
+    """
+    logger.info("Starting agent servers for testing...")
+    server_tasks = await launch_server_tasks()
+
+    try:
+        await test_agents()
+    finally:
+        for task in server_tasks:
+            task.cancel()
+        await asyncio.gather(*server_tasks, return_exceptions=True)
+
+
 def main():
     """Main entry point."""
     import argparse
@@ -325,35 +336,14 @@ def main():
     args = parser.parse_args()
 
     if args.mode == 'start':
-        # Start servers in background thread
         logger.info("Starting agent servers...")
-        server_thread = threading.Thread(target=run_servers_in_background, daemon=True)
-        server_thread.start()
-
-        # Wait for servers to be ready
-        time.sleep(5)
-
-        logger.info("\n" + "="*80)
-        logger.info("Servers are running! Press Ctrl+C to stop.")
-        logger.info("="*80 + "\n")
-
         try:
-            while True:
-                time.sleep(1)
+            asyncio.run(start_all_servers())
         except KeyboardInterrupt:
             logger.info("\nShutting down...")
 
     elif args.mode == 'test':
-        # Start servers first
-        logger.info("Starting agent servers for testing...")
-        server_thread = threading.Thread(target=run_servers_in_background, daemon=True)
-        server_thread.start()
-
-        # Wait for servers to be ready
-        time.sleep(5)
-
-        # Run tests
-        asyncio.run(test_agents())
+        asyncio.run(run_test_mode())
 
 
 if __name__ == "__main__":
