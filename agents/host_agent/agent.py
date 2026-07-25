@@ -30,10 +30,8 @@ import logging
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# =============================================================================
-# CRITICAL: Apply A2A compatibility patch BEFORE importing RemoteA2aAgent
+# Requirement (2 pts): Apply A2A compatibility patch BEFORE importing RemoteA2aAgent.
 # This fixes an import issue between google-adk and a2a-sdk versions.
-# =============================================================================
 from shared import a2a_compat  # noqa: F401
 
 from google.adk.agents import SequentialAgent
@@ -44,7 +42,6 @@ from shared.agents_config import (
     SUPPORT_AGENT_URL,
 )
 
-# Configure logging for this agent
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s] [HOST_AGENT] %(levelname)s - %(message)s',
@@ -52,50 +49,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Sub-agent names must match the architecture diagram above.
+CUSTOMER_DATA_SUB_AGENT_NAME = 'customer_data'
+SUPPORT_SUB_AGENT_NAME = 'support_specialist'
+HOST_AGENT_NAME = 'customer_support_host'
+
+
+def _agent_card_url(base_url: str) -> str:
+    """Build the well-known AgentCard discovery URL for a remote agent."""
+    return f'{base_url}{AGENT_CARD_WELL_KNOWN_PATH}'
+
 
 def create_agent() -> SequentialAgent:
-    """
-    Create the Host Agent (Orchestrator).
+    """Create the Host Agent orchestrator.
 
-    TODO: Implement this function to:
-
-    1. Create a RemoteA2aAgent for the Customer Data Agent:
-       - name='customer_data'
-       - description='Access customer and ticket data from MCP server'
-       - agent_card=f'{CUSTOMER_DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}'
-
-    2. Create a RemoteA2aAgent for the Support Agent:
-       - name='support_specialist'
-       - description='Provide customer support and troubleshooting solutions'
-       - agent_card=f'{SUPPORT_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}'
-
-    3. Create and return a SequentialAgent:
-       - name='customer_support_host'
-       - sub_agents=[remote_customer_data, remote_support]
-
-    Example:
-        remote_customer_data = RemoteA2aAgent(
-            name='customer_data',
-            description='Access customer and ticket data from MCP server',
-            agent_card=f'{CUSTOMER_DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}',
-        )
-
-        remote_support = RemoteA2aAgent(
-            name='support_specialist',
-            description='Provide customer support and troubleshooting solutions',
-            agent_card=f'{SUPPORT_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}',
-        )
-
-        return SequentialAgent(
-            name='customer_support_host',
-            sub_agents=[remote_customer_data, remote_support],
-        )
+    Workflow (sequential — context passes from step 1 to step 2):
+      1. Customer Data Agent: look up customer/ticket data via A2A + MCP
+      2. Support Agent: provide troubleshooting using prior context + MCP tools
 
     Returns:
-        Configured SequentialAgent instance
+        Configured SequentialAgent with two RemoteA2aAgent sub-agents.
     """
-    raise NotImplementedError(
-        "TODO: Create the Host Agent with two RemoteA2aAgent sub-agents "
-        "(customer_data and support_specialist) wrapped in a SequentialAgent. "
-        "See the docstring above for the exact structure."
+    logger.info("Creating Host Agent (SequentialAgent orchestrator)")
+
+    # Requirement (6 pts): RemoteA2aAgent for Customer Data Agent (port 10020).
+    remote_customer_data = RemoteA2aAgent(
+        name=CUSTOMER_DATA_SUB_AGENT_NAME,
+        description='Access customer and ticket data from MCP server',
+        agent_card=_agent_card_url(CUSTOMER_DATA_AGENT_URL),
+    )
+
+    # Requirement (6 pts): RemoteA2aAgent for Support Agent (port 10021).
+    remote_support = RemoteA2aAgent(
+        name=SUPPORT_SUB_AGENT_NAME,
+        description='Provide customer support and troubleshooting solutions',
+        agent_card=_agent_card_url(SUPPORT_AGENT_URL),
+    )
+
+    # Requirement (6 pts): SequentialAgent runs data lookup first, then support.
+    return SequentialAgent(
+        name=HOST_AGENT_NAME,
+        sub_agents=[remote_customer_data, remote_support],
     )
