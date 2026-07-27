@@ -6,7 +6,7 @@
 ### Score breakdown
 | Criterion | Max | Earned | Notes |
 |-----------|-----|--------|-------|
-| mcp_toolset_config | 15 | 15 | Both factories return McpToolset over SseConnectionParams with tool_filter. create_support_toolset excludes exactly the five operations the assignment names as admin/destructive (disable_customer, activate_customer, delete_ticket, add_customer, update_customer). The customer data filter grants 14 tools, withholding delete_ticket — a slightly tighter reading than README.md:94, which specifies full access for that role; the narrower grant is a defensible least-privilege choice and costs nothing. (`agents/shared/mcp_toolset.py:67`) |
+| mcp_toolset_config | 15 | 15 | Both factories return McpToolset over SseConnectionParams with tool_filter. create_support_toolset excludes exactly the five operations the assignment names as admin/destructive (disable_customer, activate_customer, delete_ticket, add_customer, update_customer). The customer data filter grants 14 tools, which matches the capability list in the TODO 1 comment block in this very file exactly — the scaffold is internally inconsistent here, since README.md:94 instead specifies full access for that role. Both readings are accepted: the canonical rubric constrains only the support toolset. (`agents/shared/mcp_toolset.py:67`) |
 | data_agent_instruction | 10 | 10 | Instruction pairs every capability with the actual MCP tool name in parentheses and includes the real status filter values, gives a four-step handling procedure covering multi-entity requests, and sets a precise data-driven response style. (`agents/customer_data_agent/agent.py:59`) |
 | mcp_integration | 10 | 10 | tools=[create_customer_data_toolset()] attaches the MCP-backed toolset to the Agent with GEMINI_MODEL. (`agents/customer_data_agent/agent.py:97`) |
 | error_handling_instruction | 5 | 4 | The essentials are covered — ask for a missing identifier rather than guessing (line 81), do not fabricate data the tools did not return (line 86), and state a no-result or error plainly instead of speculating. Thin in places: there is no dedicated error-handling section, no distinction between a tool failure and a not-found result, and no guidance on suggesting a recovery step to the caller. (`agents/customer_data_agent/agent.py:94`) |
@@ -46,7 +46,3 @@ You may resubmit **once**. Push fixes to this repo, then notify the instructor; 
 
 ---
 *Graded automatically with Claude Code against the course rubric. Questions → contact the instructor.*
-
-
----
-<sub>🔎 **Autograder record** — attempt 1 of 2 · graded at commit `44990be` · delivered 2026-07-27T07:01:19Z. Commits pushed to `main` after this timestamp are treated as a resubmission.</sub>
