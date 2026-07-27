@@ -8,7 +8,7 @@
 ### Score breakdown
 | Criterion | Max | Earned | Notes |
 |-----------|-----|--------|-------|
-| mcp_toolset_config | 15 | 15 | Both factories return McpToolset over SseConnectionParams with tool_filter. create_support_toolset excludes exactly the five operations the assignment names as admin/destructive (disable_customer, activate_customer, delete_ticket, add_customer, update_customer). The customer data filter grants 14 tools, withholding delete_ticket — a slightly tighter reading than README.md:94, which specifies full access for that role; the narrower grant is a defensible least-privilege choice and costs nothing. (`agents/shared/mcp_toolset.py:96`) |
+| mcp_toolset_config | 15 | 15 | Both factories return McpToolset over SseConnectionParams with tool_filter. create_support_toolset excludes exactly the five operations the assignment names as admin/destructive (disable_customer, activate_customer, delete_ticket, add_customer, update_customer). The customer data filter grants 14 tools, which matches the capability list in the TODO 1 comment block in this very file exactly — the scaffold is internally inconsistent here, since README.md:94 instead specifies full access for that role. Both readings are accepted: the canonical rubric constrains only the support toolset. (`agents/shared/mcp_toolset.py:96`) |
 | data_agent_instruction | 10 | 10 | Instruction enumerates capabilities down to the actual filter values ('active'/'disabled', 'open'/'in_progress'/'resolved', priority levels), gives a three-step handling procedure, and requires formatting results into readable summaries rather than dumping raw JSON. (`agents/customer_data_agent/agent.py:81`) |
 | mcp_integration | 10 | 10 | tools=[create_customer_data_toolset()] attaches the MCP-backed toolset to the Agent with GEMINI_MODEL. (`agents/customer_data_agent/agent.py:114`) |
 | error_handling_instruction | 5 | 5 | Explicit rule: if a lookup returns no results or an error, tell the user plainly what was not found and suggest a next step (re-check the ID, try listing instead) rather than failing silently or guessing at data. (`agents/customer_data_agent/agent.py:109`) |
@@ -48,7 +48,3 @@ You may resubmit **once**. Push fixes to this repo, then notify the instructor; 
 
 ---
 *Graded automatically with Claude Code against the course rubric. Questions → contact the instructor.*
-
-
----
-<sub>🔎 **Autograder record** — attempt 1 of 2 · graded at commit `4fee3d7` · delivered 2026-07-27T07:01:02Z. Commits pushed to `main` after this timestamp are treated as a resubmission.</sub>
