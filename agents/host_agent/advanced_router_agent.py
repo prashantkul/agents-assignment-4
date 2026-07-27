@@ -121,7 +121,10 @@ def create_router_instruction(readonly_context) -> str:
     TODO: Implement this function to:
       1. Get the user's query from readonly_context.latest_user_message
       2. Call analyze_query_intent(query)
-      3. Store routing_decision in readonly_context.state
+      3. Store routing_decision in session state. NOTE: an instruction provider receives a
+         ReadonlyContext, whose .state is a read-only view — assigning to it does not reliably
+         persist. Compute and store the decision in a before_agent_callback on the router agent
+         (which receives a writable CallbackContext); this function can then read it back.
       4. Return a dynamic instruction string based on the analysis
     """
     raise NotImplementedError("BONUS TODO: Implement create_router_instruction")
