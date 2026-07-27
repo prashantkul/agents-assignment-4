@@ -6,7 +6,7 @@
 ### Score breakdown
 | Criterion | Max | Earned | Notes |
 |-----------|-----|--------|-------|
-| mcp_toolset_config | 15 | 15 | Both factories return McpToolset over SseConnectionParams with tool_filter. create_support_toolset excludes exactly the five operations the assignment names as admin/destructive (disable_customer, activate_customer, delete_ticket, add_customer, update_customer). The customer data filter grants 14 tools, withholding delete_ticket — a slightly tighter reading than README.md:94, which specifies full access for that role; the narrower grant is a defensible least-privilege choice and costs nothing. (`agents/shared/mcp_toolset.py:60`) |
+| mcp_toolset_config | 15 | 15 | Both factories return McpToolset over SseConnectionParams with tool_filter. create_support_toolset excludes exactly the five operations the assignment names as admin/destructive (disable_customer, activate_customer, delete_ticket, add_customer, update_customer). The customer data filter grants 14 tools, which matches the capability list in the TODO 1 comment block in this very file exactly — the scaffold is internally inconsistent here, since README.md:94 instead specifies full access for that role. Both readings are accepted: the canonical rubric constrains only the support toolset. (`agents/shared/mcp_toolset.py:60`) |
 | data_agent_instruction | 10 | 10 | Instruction names each tool by its real MCP name with its filter parameters, gives a four-step handling procedure including 'do not guess IDs — use a lookup tool first', and specifies a precise, data-driven response style. (`agents/customer_data_agent/agent.py:42`) |
 | mcp_integration | 10 | 10 | tools=[create_customer_data_toolset()] attaches the MCP-backed toolset to the Agent with GEMINI_MODEL. (`agents/customer_data_agent/agent.py:72`) |
 | error_handling_instruction | 5 | 5 | Explicit rule: never invent customer or ticket data; if a tool call returns an error or empty result, report that plainly instead of making something up. Paired with the missing-ID guidance at line 56. (`agents/customer_data_agent/agent.py:62`) |
@@ -44,7 +44,3 @@ You may resubmit **once**. Push fixes to this repo, then notify the instructor; 
 
 ---
 *Graded automatically with Claude Code against the course rubric. Questions → contact the instructor.*
-
-
----
-<sub>🔎 **Autograder record** — attempt 1 of 2 · graded at commit `28351a5` · delivered 2026-07-27T07:00:57Z. Commits pushed to `main` after this timestamp are treated as a resubmission.</sub>
